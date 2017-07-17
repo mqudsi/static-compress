@@ -4,6 +4,7 @@ use std::path::Path;
 
 pub struct Parameters {
     pub compressor: CompressionAlgorithm,
+    pub extension: String,
     pub include_filters: Vec<String>,
     pub threads: usize,
 }
@@ -28,10 +29,15 @@ impl std::str::FromStr for CompressionAlgorithm {
     }
 }
 
-trait DefaultFileCompressor {
-    fn compress(source: AsRef<Path>, destination: AsRef<Path>) -> Result<()>;
+pub trait DefaultFileCompressor {
+    fn compress(&self, source: &Path, destination: &Path) -> Result<()>;
 }
 
-trait FileCompressor {
-    fn compress(source: AsRef<Path>, destination: AsRef<Path>, level: u8);
+pub trait FileCompressor {
+    fn compress(&self, source: &Path, destination: &Path, level: u8);
 }
+
+pub trait CompressionFormat {
+    fn extension(&self) -> &'static str;
+}
+

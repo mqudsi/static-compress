@@ -5,5 +5,6 @@ error_chain! {
             display("Invalid value supplied for parameter {}", pname)
         }
         InvalidUsage
+        InvalidIncludeFilter
     }
 }
