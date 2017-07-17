@@ -1,7 +1,6 @@
 extern crate brotli2;
 extern crate flate2;
 
-use ::*;
 use structs::*;
 use errors::*;
 use std::fs::File;

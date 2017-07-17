@@ -13,7 +13,6 @@ use clap::{App, Arg};
 use errors::*;
 use structs::*;
 use std::sync::Arc;
-use compression::*;
 
 quick_main!(run);
 
