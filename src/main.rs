@@ -40,6 +40,11 @@ fn run() -> Result<()> {
             .value_name("FILTER")
             .multiple(true)
             .required(true))
+        .arg(Arg::with_name("ext")
+            .short("e")
+            .value_name(".EXT")
+            .long("extension")
+            .help("The extension to use for compressed files. Supplied automatically if not provided."))
         .get_matches();
 
     fn get_parameter<'a, T>(matches: &clap::ArgMatches, name: &str, default_value: T) -> Result<T>
