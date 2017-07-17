@@ -128,7 +128,7 @@ fn worker_thread(params: Arc<Parameters>, rx: chan::Receiver<ThreadParam>) {
 
         //params.compressor.compress(src, dst, params.level);
         if let Err(e) = params.compressor.compress(src.as_path(), dst) {
-            errstln!("Error compressing {}: {:?}", src.to_string_lossy(), e);
+            errstln!("Error compressing {}: {}", src.to_string_lossy(), e);
         }
     }
 }
