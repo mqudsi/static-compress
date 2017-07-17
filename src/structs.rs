@@ -40,4 +40,3 @@ pub trait FileCompressor {
 pub trait CompressionFormat {
     fn extension(&self) -> &'static str;
 }
-
