@@ -1,0 +1,11 @@
+[package]
+name = "static-compress"
+version = "0.1.0"
+authors = ["Mahmoud Al-Qudsi <mqudsi@neosmart.net>"]
+
+[dependencies]
+brotli2 = "0.3.0"
+clap = "2.25.0"
+error-chain = "0.10.0"
+flate2 = "0.2.19"
+zopfli = "0.3.6"
