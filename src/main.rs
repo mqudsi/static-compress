@@ -4,6 +4,7 @@ extern crate error_chain;
 extern crate stderr;
 extern crate chan;
 extern crate clap;
+extern crate filetime;
 extern crate glob;
 
 #[macro_use]
@@ -138,17 +139,21 @@ fn worker_thread(params: Arc<Parameters>, rx: chan::Receiver<ThreadParam>) {
             //again, in a scope for error handling
             || -> Result<()> {
                     println!("{}", src.to_string_lossy());
+                    let src_metadata = std::fs::metadata(src)?;
 
                     //don't compress files that are already compressed that haven't changed
                     if let Ok(dst_metadata) = std::fs::metadata(dst) {
                         //the destination already exists
-                        let src_metadata = std::fs::metadata(src)?;
                         match src_metadata.modified()? == dst_metadata.modified()? {
                             true => return Ok(()), //no need to recompress
                             false => std::fs::remove_file(dst)?, //throw if we can't
                         };
                     }
-                    params.compressor.compress(src.as_path(), dst)
+                    params.compressor.compress(src.as_path(), dst)?;
+                    let src_modified = filetime::FileTime::from_last_modification_time(&src_metadata);
+                    filetime::set_file_times(dst, filetime::FileTime::zero(), src_modified).unwrap_or_default();
+
+                    Ok(())
                 }()
                 .map_err(|e| {
                     //try deleting the invalid destination file, but don't care if we can't
