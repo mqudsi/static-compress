@@ -106,9 +106,20 @@ fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, filters: &Vec<String>) -
     for filter in filters {
         for entry in glob::glob(filter).map_err(|_| ErrorKind::InvalidIncludeFilter)? {
             match entry {
-                Ok(path) => send_queue.send(path),
-                Err(e) => errstln!("{:?}", e) //error reading file, but don't bail
-            }
+                Ok(path) => {
+                    //make sure this is a file, not a folder
+                    match std::fs::metadata(&path) {
+                        Ok(metadata) => {
+                            if metadata.is_file() {
+                                send_queue.send(path);
+                            }
+                            continue; //skip otherwise
+                        },
+                        Err(e) => errstln!("{}: {}", path.to_string_lossy(), e)
+                    }
+                },
+                Err(e) => errstln!("{}", e)
+            };
         };
     }
     Ok(())
@@ -129,6 +140,8 @@ fn worker_thread(params: Arc<Parameters>, rx: chan::Receiver<ThreadParam>) {
         //params.compressor.compress(src, dst, params.level);
         if let Err(e) = params.compressor.compress(src.as_path(), dst) {
             errstln!("Error compressing {}: {}", src.to_string_lossy(), e);
+            //try deleting the invalid destination file, but don't care if we can't
+            std::fs::remove_file(dst).unwrap_or_default();
         }
     }
 }
