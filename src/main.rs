@@ -128,16 +128,37 @@ fn worker_thread(params: Arc<Parameters>, rx: chan::Receiver<ThreadParam>) {
             None => return, //no more tasks
         };
 
-        let dst_path = format!("{}.{}", src.to_str().unwrap(), params.extension);
-        let dst = std::path::Path::new(&dst_path);
+        //in a nested function so we can handle errors centrally
+        fn compress_single(src: &ThreadParam, params: &Parameters) -> Result<()> {
+            let dst_path = format!("{}.{}",
+                                   src.to_str().ok_or(ErrorKind::InvalidCharactersInPath)?,
+                                   params.extension);
+            let dst = std::path::Path::new(&dst_path);
 
-        println!("{}", src.to_string_lossy());
+            //again, in a scope for error handling
+            || -> Result<()> {
+                    println!("{}", src.to_string_lossy());
 
-        //params.compressor.compress(src, dst, params.level);
-        if let Err(e) = params.compressor.compress(src.as_path(), dst) {
+                    //don't compress files that are already compressed that haven't changed
+                    if let Ok(dst_metadata) = std::fs::metadata(dst) {
+                        //the destination already exists
+                        let src_metadata = std::fs::metadata(src)?;
+                        match src_metadata.modified()? == dst_metadata.modified()? {
+                            true => return Ok(()), //no need to recompress
+                            false => std::fs::remove_file(dst)?, //throw if we can't
+                        };
+                    }
+                    params.compressor.compress(src.as_path(), dst)
+                }()
+                .map_err(|e| {
+                    //try deleting the invalid destination file, but don't care if we can't
+                    std::fs::remove_file(dst).unwrap_or_default();
+                    e //return the same error
+                })
+        }
+
+        if let Err(e) = compress_single(&src, &params) {
             errstln!("Error compressing {}: {}", src.to_string_lossy(), e);
-            //try deleting the invalid destination file, but don't care if we can't
-            std::fs::remove_file(dst).unwrap_or_default();
         }
     }
 }

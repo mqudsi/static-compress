@@ -6,6 +6,7 @@ error_chain! {
         }
         InvalidUsage
         InvalidIncludeFilter
+        InvalidCharactersInPath
     }
     foreign_links {
         Io(::std::io::Error);
