@@ -1,0 +1,15 @@
+pub const COMP_EXTS: &'static [&'static str] = &[
+    "7z",
+    "br",
+    "bz2",
+    "gz",
+    "lzh",
+    "lzma",
+    "lzx",
+    "rar",
+    "sfx",
+    "xz",
+    "zip",
+    "zpaq",
+    "zz",
+];

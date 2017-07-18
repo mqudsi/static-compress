@@ -7,14 +7,16 @@ extern crate clap;
 extern crate filetime;
 extern crate glob;
 
-#[macro_use]
-mod errors;
-mod structs;
+#[macro_use] mod errors;
 mod compression;
+mod lists;
+mod structs;
 
 use clap::{App, Arg};
 use errors::*;
+use lists::*;
 use structs::*;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 quick_main!(run);
@@ -45,6 +47,12 @@ fn run() -> Result<()> {
             .value_name(".EXT")
             .long("extension")
             .help("The extension to use for compressed files. Supplied automatically if not provided."))
+        /*.arg(Arg::with_name("excludes")
+            .short("x")
+            .value_name("FILTER")
+            .long("exclude")
+            .multiple(true)
+            .help("Exclude files matching this glob expression"))*/
         .get_matches();
 
     fn get_parameter<'a, T>(matches: &clap::ArgMatches, name: &str, default_value: T) -> Result<T>
@@ -72,11 +80,16 @@ fn run() -> Result<()> {
         threads: get_parameter(&matches, "threads", 1)?,
     };
 
+    /*let exclude_filters = match matches.values_of("exclude") {
+        Some(values)=> values.map(|s| s.to_owned()).collect(),
+        None => Vec::<String>::new(),
+    };*/
+
     let parameters = Arc::<Parameters>::new(temp);
     let (send_queue, wait_group) = start_workers(&parameters);
 
     //convert filters to paths and deal out conversion jobs
-    dispatch_jobs(send_queue, &parameters.include_filters)?;
+    dispatch_jobs(send_queue, &parameters.include_filters/*, exclude_filters*/)?;
 
     //wait for all jobs to finish
     wait_group.wait();
@@ -104,11 +117,15 @@ fn start_workers<'a>(params: &Arc<Parameters>) -> (chan::Sender<ThreadParam>, ch
     (tx, wg)
 }
 
-fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, filters: &Vec<String>) -> Result<()> {
+fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, filters: &Vec<String>/*, exclude_filters: Vec<String>*/) -> Result<()> {
     for filter in filters {
         for entry in glob::glob(filter).map_err(|_| ErrorKind::InvalidIncludeFilter)? {
             match entry {
                 Ok(path) => {
+                    if is_blacklisted(&path)? {
+                        //this path has been excluded
+                        continue;
+                    }
                     //make sure this is a file, not a folder
                     match std::fs::metadata(&path) {
                         Ok(metadata) => {
@@ -139,7 +156,7 @@ fn worker_thread(params: Arc<Parameters>, rx: chan::Receiver<ThreadParam>) {
             let dst_path = format!("{}.{}",
                                    src.to_str().ok_or(ErrorKind::InvalidCharactersInPath)?,
                                    params.extension);
-            let dst = std::path::Path::new(&dst_path);
+            let dst = Path::new(&dst_path);
 
             //again, in a scope for error handling
             || -> Result<()> {
@@ -172,3 +189,25 @@ fn worker_thread(params: Arc<Parameters>, rx: chan::Receiver<ThreadParam>) {
         }
     }
 }
+
+fn str_search(sorted: &[&str], search_term: &str, case_sensitive: bool) -> std::result::Result<usize, usize> {
+    let term = match case_sensitive {
+        true => search_term.to_owned(),
+        false => search_term.to_lowercase(),
+    };
+
+    sorted.binary_search_by(|probe| probe.cmp(&&*term))
+}
+
+fn is_blacklisted(path: &PathBuf) -> Result<bool> {
+    let r = match path.extension() {
+        Some(x) => {
+            let ext = x.to_str().ok_or(ErrorKind::InvalidCharactersInPath)?;
+            str_search(COMP_EXTS, &ext, false).is_ok()
+        },
+        None => false,
+    };
+
+    return Ok(r);
+}
+
