@@ -123,8 +123,14 @@ fn start_workers<'a>(params: &Arc<Parameters>) -> (chan::Sender<ThreadParam>, ch
 }
 
 fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, filters: &Vec<String>/*, exclude_filters: Vec<String>*/) -> Result<()> {
+    let mut match_options = glob::MatchOptions::new();
+    match_options.require_literal_leading_dot = true;
+
     for filter in filters {
-        for entry in glob::glob(filter).map_err(|_| ErrorKind::InvalidIncludeFilter)? {
+        //by default, rs-glob treats "**" as a directive to match only directories
+        //we can either rewrite "**" as "**/*" or recurse into directories below
+        let new_filter = (&*filter).replace("**", "**/*");
+        for entry in glob::glob_with(&new_filter, &match_options).map_err(|_| ErrorKind::InvalidIncludeFilter)? {
             match entry {
                 Ok(path) => {
                     if is_blacklisted(&path)? {
@@ -209,6 +215,13 @@ fn str_search(sorted: &[&str], search_term: &str, case_sensitive: bool) -> std::
 }
 
 fn is_blacklisted(path: &PathBuf) -> Result<bool> {
+    //after some careful consideration, ignoring directories and files that start with a literal
+    //dot. We might add a feature to bypass this in the future.
+    if path.as_path().to_string_lossy().contains("/.") || path.as_path().to_string_lossy().starts_with(".") {
+        //errstln!("Skipping path with leading literal .: {}", path.display());
+        return Ok(true);
+    }
+
     let r = match path.extension() {
         Some(x) => {
             let ext = x.to_str().ok_or(ErrorKind::InvalidCharactersInPath)?;
