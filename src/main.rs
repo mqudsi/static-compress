@@ -182,8 +182,15 @@ fn worker_thread(params: Arc<Parameters>, rx: chan::Receiver<ThreadParam>) {
                     if let Ok(dst_metadata) = std::fs::metadata(dst) {
                         //the destination already exists
                         match src_metadata.modified()? == dst_metadata.modified()? {
-                            true => return Ok(()), //no need to recompress
-                            false => std::fs::remove_file(dst)?, //throw if we can't
+                            true => {
+                                errstln!("Skipping already-compressed {}", src.to_string_lossy());
+                                return Ok(());//no need to recompress
+                            },
+                            false => {
+                                errstln!("Deleting out-dated compressed file {}", dst.display());
+                                std::fs::remove_file(dst)?; //throw if we can't
+
+                            }
                         };
                     }
                     params.compressor.compress(src.as_path(), dst)?;
