@@ -88,6 +88,11 @@ fn run() -> Result<()> {
     let parameters = Arc::<Parameters>::new(temp);
     let (send_queue, wait_group) = start_workers(&parameters);
 
+
+    for ref inc_filter in &parameters.include_filters {
+        println!("{}", &inc_filter);
+    }
+
     //convert filters to paths and deal out conversion jobs
     dispatch_jobs(send_queue, &parameters.include_filters/*, exclude_filters*/)?;
 
@@ -123,6 +128,7 @@ fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, filters: &Vec<String>/*,
             match entry {
                 Ok(path) => {
                     if is_blacklisted(&path)? {
+                        println!("Path {} has been excluded", path.display());
                         //this path has been excluded
                         continue;
                     }
@@ -131,6 +137,9 @@ fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, filters: &Vec<String>/*,
                         Ok(metadata) => {
                             if metadata.is_file() {
                                 send_queue.send(path);
+                            }
+                            else {
+                                println!("Skipping non-file path {}", path.display());
                             }
                             continue; //skip otherwise
                         }
