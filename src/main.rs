@@ -119,7 +119,10 @@ fn start_workers<'a>(params: &Arc<Parameters>) -> (chan::Sender<ThreadParam>, ch
 
 fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, filters: &Vec<String>/*, exclude_filters: Vec<String>*/) -> Result<()> {
     for filter in filters {
-        for entry in glob::glob(filter).map_err(|_| ErrorKind::InvalidIncludeFilter)? {
+        //by default, rs-glob treats "**" as a directive to match only directories
+        //we can either rewrite "**" as "**/*" or recurse into directories below
+        let new_filter = (&*filter).replace("**", "**/*");
+        for entry in glob::glob(&new_filter).map_err(|_| ErrorKind::InvalidIncludeFilter)? {
             match entry {
                 Ok(path) => {
                     if is_blacklisted(&path)? {
