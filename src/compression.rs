@@ -1,5 +1,6 @@
 extern crate brotli2;
 extern crate flate2;
+extern crate zopfli;
 
 use structs::*;
 use errors::*;
@@ -23,7 +24,8 @@ impl DefaultFileCompressor for CompressionAlgorithm {
         match self {
             &CompressionAlgorithm::GZip => gzip_compress(src, dst),
             &CompressionAlgorithm::Brotli => brotli_compress(src, dst),
-            _ => bail!("Compression algorithm not implemented!"),
+            &CompressionAlgorithm::Zopfli => zopfli_compress(src, dst),
+            // _ => bail!("Compression algorithm not implemented!"),
         }
     }
 }
@@ -58,6 +60,18 @@ fn brotli_compress(src_path: &Path, dst_path: &Path) -> Result<()> {
             l => encoder.write_all(&buf[0..l]).chain_err(|| "Fatal gzip encoder error!")?,
         };
     }
+
+    Ok(())
+}
+
+fn zopfli_compress(src_path: &Path, dst_path: &Path) -> Result<()> {
+    let mut src = File::open(src_path)?;
+    let mut dst = File::create(dst_path)?;
+
+    let mut src_data = Vec::<u8>::new();
+    src.read_to_end(&mut src_data)?;
+
+    zopfli::compress(&zopfli::Options::default(), &zopfli::Format::Gzip, &mut src_data, &mut dst)?;
 
     Ok(())
 }
