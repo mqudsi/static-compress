@@ -40,3 +40,46 @@ pub trait FileCompressor {
 pub trait CompressionFormat {
     fn extension(&self) -> &'static str;
 }
+
+pub struct Statistics {
+    total_compressed: u64,
+    total_compressed_now: u64,
+    total_file_count: u32,
+    total_file_count_now: u32,
+    total_uncompressed: u64,
+    total_uncompressed_now: u64,
+}
+
+impl Statistics {
+    pub fn new() -> Statistics {
+        Statistics {
+            total_compressed: 0,
+            total_compressed_now: 0,
+            total_file_count: 0,
+            total_file_count_now: 0,
+            total_uncompressed: 0,
+            total_uncompressed_now: 0,
+        }
+    }
+
+    pub fn update(&mut self, compressed_size: u64, uncompressed_size: u64, newly_compressed: bool) {
+        if newly_compressed {
+            self.total_compressed_now += compressed_size;
+            self.total_file_count_now += 1;
+            self.total_uncompressed_now += uncompressed_size;
+        }
+
+        self.total_compressed += compressed_size;
+        self.total_file_count += 1;
+        self.total_uncompressed += uncompressed_size;
+    }
+
+    pub fn merge(&mut self, other: &Statistics) {
+        self.total_compressed += other.total_compressed;
+        self.total_compressed_now += other.total_compressed_now;
+        self.total_file_count += other.total_file_count;
+        self.total_file_count_now += other.total_file_count_now;
+        self.total_uncompressed += other.total_uncompressed;
+        self.total_uncompressed_now += other.total_uncompressed_now;
+    }
+}

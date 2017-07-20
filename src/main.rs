@@ -18,6 +18,7 @@ use lists::*;
 use structs::*;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::mpsc;
 
 quick_main!(run);
 
@@ -86,7 +87,7 @@ fn run() -> Result<()> {
     };*/
 
     let parameters = Arc::<Parameters>::new(temp);
-    let (send_queue, wait_group) = start_workers(&parameters);
+    let (send_queue, stats_rx, wait_group) = start_workers(&parameters);
 
     //convert filters to paths and deal out conversion jobs
     dispatch_jobs(send_queue, &parameters.include_filters/*, exclude_filters*/)?;
@@ -94,27 +95,37 @@ fn run() -> Result<()> {
     //wait for all jobs to finish
     wait_group.wait();
 
+    //merge statistics from all threads
+    let mut stats = Statistics::new();
+    while let Ok(thread_stats) = stats_rx.recv() {
+        stats.merge(&thread_stats);
+    }
+
+    //print_stats();
+
     Ok(())
 }
 
 type ThreadParam = std::path::PathBuf;
 
-fn start_workers<'a>(params: &Arc<Parameters>) -> (chan::Sender<ThreadParam>, chan::WaitGroup) {
+fn start_workers<'a>(params: &Arc<Parameters>) -> (chan::Sender<ThreadParam>, mpsc::Receiver<Statistics>, chan::WaitGroup) {
     let (tx, rx) = chan::sync::<ThreadParam>(params.threads);
+    let (stats_tx, stats_rx) = std::sync::mpsc::channel::<Statistics>();
     let wg = chan::WaitGroup::new();
 
     for _ in 0..params.threads {
         let local_params = params.clone();
         let local_rx = rx.clone();
+        let local_stats_tx = stats_tx.clone();
         let local_wg = wg.clone();
         wg.add(1);
         std::thread::spawn(move || {
-            worker_thread(local_params, local_rx);
+            worker_thread(local_params, local_stats_tx, local_rx);
             local_wg.done();
         });
     }
 
-    (tx, wg)
+    (tx, stats_rx, wg)
 }
 
 fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, filters: &Vec<String>/*, exclude_filters: Vec<String>*/) -> Result<()> {
@@ -150,22 +161,24 @@ fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, filters: &Vec<String>/*,
     Ok(())
 }
 
-fn worker_thread(params: Arc<Parameters>, rx: chan::Receiver<ThreadParam>) {
+fn worker_thread(params: Arc<Parameters>, stats_tx: mpsc::Sender<Statistics>, rx: chan::Receiver<ThreadParam>) {
+    let mut local_stats = Statistics::new();
+
     loop {
         let src = match rx.recv() {
             Some(task) => task,
-            None => return, //no more tasks
+            None => break, //no more tasks
         };
 
         //in a nested function so we can handle errors centrally
-        fn compress_single(src: &ThreadParam, params: &Parameters) -> Result<()> {
+        fn compress_single(src: &ThreadParam, params: &Parameters, mut local_stats: &mut Statistics) -> Result<()> {
             let dst_path = format!("{}.{}",
                                    src.to_str().ok_or(ErrorKind::InvalidCharactersInPath)?,
                                    params.extension);
             let dst = Path::new(&dst_path);
 
             //again, in a scope for error handling
-            || -> Result<()> {
+            |local_stats: &mut Statistics| -> Result<()> {
                     println!("{}", src.to_string_lossy());
                     let src_metadata = std::fs::metadata(src)?;
 
@@ -176,6 +189,7 @@ fn worker_thread(params: Arc<Parameters>, rx: chan::Receiver<ThreadParam>) {
                         let dst_seconds = dst_metadata.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs();
                         match src_seconds == dst_seconds {
                             true => {
+                                local_stats.update(src_metadata.len(), dst_metadata.len(), false);
                                 return Ok(());//no need to recompress
                             },
                             false => {
@@ -184,11 +198,13 @@ fn worker_thread(params: Arc<Parameters>, rx: chan::Receiver<ThreadParam>) {
                         };
                     }
                     params.compressor.compress(src.as_path(), dst)?;
+                    let dst_metadata = std::fs::metadata(dst)?;
+                    local_stats.update(src_metadata.len(), dst_metadata.len(), true);
                     let src_modified = filetime::FileTime::from_last_modification_time(&src_metadata);
                     filetime::set_file_times(dst, filetime::FileTime::zero(), src_modified).unwrap_or_default();
 
                     Ok(())
-                }()
+                }(&mut local_stats)
                 .map_err(|e| {
                     //try deleting the invalid destination file, but don't care if we can't
                     std::fs::remove_file(dst).unwrap_or_default();
@@ -196,9 +212,13 @@ fn worker_thread(params: Arc<Parameters>, rx: chan::Receiver<ThreadParam>) {
                 })
         }
 
-        if let Err(e) = compress_single(&src, &params) {
+        if let Err(e) = compress_single(&src, &params, &mut local_stats) {
             errstln!("Error compressing {}: {}", src.to_string_lossy(), e);
         }
+    }
+
+    if !stats_tx.send(local_stats).is_ok() {
+        errstln!("Error compiling statistics!");
     }
 }
 
