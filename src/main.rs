@@ -1,10 +1,10 @@
-#[macro_use] extern crate error_chain;
+#[macro_use] extern crate error_chain; 
 #[macro_use] extern crate prettytable;
 #[macro_use] extern crate stderr;
 extern crate chan;
 extern crate clap;
 extern crate filetime;
-extern crate glob;
+extern crate globset;
 extern crate pretty_bytes;
 extern crate separator;
 
@@ -15,11 +15,12 @@ mod structs;
 
 use clap::{App, Arg};
 use errors::*;
+use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
 use lists::*;
-use structs::*;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::mpsc;
+use structs::*;
 
 quick_main!(run);
 
@@ -68,6 +69,7 @@ fn run() -> Result<()> {
         }
     }
 
+    let case_sensitive = !matches.is_present("nocase");
     let compressor = get_parameter(&matches, "compressor", CompressionAlgorithm::GZip)?;
     let temp = Parameters {
         extension: matches.value_of("ext")
@@ -75,10 +77,6 @@ fn run() -> Result<()> {
             .trim_matches(|c: char| c.is_whitespace() || c.is_control() || c == '.')
             .to_owned(),
         compressor: compressor,
-        include_filters: match matches.values_of("filters") {
-            Some(values) => Ok(values.map(|s| s.to_owned()).collect()),
-            None => Err(ErrorKind::InvalidUsage),
-        }?,
         threads: get_parameter(&matches, "threads", 1)?,
     };
 
@@ -90,8 +88,23 @@ fn run() -> Result<()> {
     let parameters = Arc::<Parameters>::new(temp);
     let (send_queue, stats_rx, wait_group) = start_workers(&parameters);
 
+    let include_filters: Vec<String> = match matches.values_of("filters") {
+        Some(values) => Ok(values.map(|s| s.to_owned()).collect()),
+        None => Err(ErrorKind::InvalidUsage),
+    }?;
+
+    let mut builder = GlobSetBuilder::new();
+    for filter in include_filters.iter() {
+        let glob = GlobBuilder::new(filter)
+            .case_insensitive(!case_sensitive)
+            //.literal_separator(true) //this would prevent repeated entry into subdirs
+            .build().map_err(|_| ErrorKind::InvalidIncludeFilter)?;
+        builder.add(glob);
+    }
+    let globset = builder.build().map_err(|_| ErrorKind::InvalidIncludeFilter)?;
+
     //convert filters to paths and deal out conversion jobs
-    dispatch_jobs(send_queue, &parameters.include_filters/*, exclude_filters*/)?;
+    dispatch_jobs(send_queue, globset/*, exclude_filters*/)?;
 
     //wait for all jobs to finish
     wait_group.wait();
@@ -129,52 +142,42 @@ fn start_workers<'a>(params: &Arc<Parameters>) -> (chan::Sender<ThreadParam>, mp
     (tx, stats_rx, wg)
 }
 
-fn yield_file<F>(path: &Path, callback: &F) -> Result<()>
+fn yield_file<F>(path: &Path, globset: &GlobSet, callback: &F) -> Result<()>
     where F: Fn(&Path) -> Result<()>
 {
     if path.is_dir() {
         for child in path.read_dir()? {
-            yield_file(child?.path().as_path(), callback)?;
+            let child_path = child?.path();
+            yield_file(child_path.as_path(), globset, callback)?;
         }
         Ok(())
     }
     else {
-        callback(path)
+        if globset.is_match(path) {
+            callback(path)?;
+        }
+        Ok(())
     }
 }
 
-fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, filters: &Vec<String>/*, exclude_filters: Vec<String>*/) -> Result<()> {
-    let mut match_options = glob::MatchOptions::new();
-    match_options.require_literal_leading_dot = true;
-
-    for filter in filters {
-        let new_filter = (&*filter).replace("**", "**/*");
-        for entry in glob::glob_with(&new_filter, &match_options).map_err(|_| ErrorKind::InvalidIncludeFilter)? {
-            match entry {
-                Ok(path) => {
-                    yield_file(&path, &|path: &Path| {
-                        if is_blacklisted(path)? {
-                            //this path has been excluded
-                            return Ok(());
-                        }
-                        //make sure this is a file, not a folder
-                        match std::fs::metadata(path) {
-                            Ok(metadata) => {
-                                if metadata.is_file() {
-                                    let pbuff = path.to_path_buf();
-                                    send_queue.send(pbuff);
-                                }
-                            }
-                            Err(e) => errstln!("{}: {}", path.to_string_lossy(), e),
-                        };
-                        Ok(())
-                    })?
-                }
-                Err(e) => errstln!("{}", e),
-            };
+fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, globset: GlobSet/*, exclude_filters: Vec<String>*/) -> Result<()> {
+    yield_file(Path::new("./"), &globset, &|path: &Path| {
+        if is_blacklisted(path)? {
+            //this path has been excluded
+            return Ok(());
         }
-    }
-    Ok(())
+        //make sure this is a file, not a folder
+        match std::fs::metadata(path) {
+            Ok(metadata) => {
+                if metadata.is_file() {
+                    let pbuff = path.to_path_buf();
+                    send_queue.send(pbuff);
+                }
+            }
+            Err(e) => errstln!("{}: {}", path.to_string_lossy(), e),
+        };
+        Ok(())
+    })
 }
 
 fn worker_thread(params: Arc<Parameters>, stats_tx: mpsc::Sender<Statistics>, rx: chan::Receiver<ThreadParam>) {
@@ -248,6 +251,7 @@ fn str_search(sorted: &[&str], search_term: &str, case_sensitive: bool) -> std::
 }
 
 fn is_blacklisted(path: &Path) -> Result<bool> {
+
     let r = match path.extension() {
         Some(x) => {
             let ext = x.to_str().ok_or(ErrorKind::InvalidCharactersInPath)?;

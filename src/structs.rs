@@ -7,7 +7,6 @@ use std::path::Path;
 pub struct Parameters {
     pub compressor: CompressionAlgorithm,
     pub extension: String,
-    pub include_filters: Vec<String>,
     pub threads: usize,
 }
 
