@@ -181,7 +181,11 @@ fn worker_thread(params: Arc<Parameters>, rx: chan::Receiver<ThreadParam>) {
                     //don't compress files that are already compressed that haven't changed
                     if let Ok(dst_metadata) = std::fs::metadata(dst) {
                         //the destination already exists
-                        match src_metadata.modified()? == dst_metadata.modified()? {
+                        errstln!("source mtime: {:?}", src_metadata.modified().unwrap());
+                        errstln!("dest mtime: {:?}", dst_metadata.modified().unwrap());
+                        let src_seconds = src_metadata.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs();
+                        let dst_seconds = dst_metadata.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs();
+                        match src_seconds == dst_seconds {
                             true => {
                                 errstln!("Skipping already-compressed {}", src.to_string_lossy());
                                 return Ok(());//no need to recompress
@@ -189,7 +193,6 @@ fn worker_thread(params: Arc<Parameters>, rx: chan::Receiver<ThreadParam>) {
                             false => {
                                 errstln!("Deleting out-dated compressed file {}", dst.display());
                                 std::fs::remove_file(dst)?; //throw if we can't
-
                             }
                         };
                     }
