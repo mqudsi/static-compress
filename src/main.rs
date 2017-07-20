@@ -1,11 +1,10 @@
-#[macro_use]
-extern crate error_chain;
-#[macro_use]
-extern crate stderr;
+#[macro_use] extern crate error_chain;
+#[macro_use] extern crate stderr;
 extern crate chan;
 extern crate clap;
 extern crate filetime;
 extern crate glob;
+extern crate pretty_bytes;
 
 #[macro_use] mod errors;
 mod compression;
@@ -101,7 +100,7 @@ fn run() -> Result<()> {
         stats.merge(&thread_stats);
     }
 
-    //print_stats();
+    println!("{}", stats);
 
     Ok(())
 }

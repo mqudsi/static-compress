@@ -1,6 +1,8 @@
+
 use ::*;
 use errors::*;
 use std::path::Path;
+use pretty_bytes::converter::convert;
 
 pub struct Parameters {
     pub compressor: CompressionAlgorithm,
@@ -62,7 +64,7 @@ impl Statistics {
         }
     }
 
-    pub fn update(&mut self, compressed_size: u64, uncompressed_size: u64, newly_compressed: bool) {
+    pub fn update(&mut self, uncompressed_size: u64, compressed_size: u64, newly_compressed: bool) {
         if newly_compressed {
             self.total_compressed_now += compressed_size;
             self.total_file_count_now += 1;
@@ -81,5 +83,34 @@ impl Statistics {
         self.total_file_count_now += other.total_file_count_now;
         self.total_uncompressed += other.total_uncompressed;
         self.total_uncompressed_now += other.total_uncompressed_now;
+    }
+
+    pub fn savings_ratio(&self) -> f32 {
+        return self.total_compressed as f32 / self.total_uncompressed as f32;
+    }
+
+    pub fn savings_ratio_now(&self) -> f32 {
+        return self.total_compressed_now as f32 / self.total_uncompressed_now as f32;
+    }
+}
+
+impl std::fmt::Display for Statistics {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+
+        writeln!(f, "");
+        write!(f, "{} files compressed", self.total_compressed_now);
+        if self.total_compressed - self.total_compressed_now != 0 {
+            write!(f, ", {} files already compressed", self.total_compressed - self.total_compressed_now);
+        }
+        writeln!(f, "\n");
+        writeln!(f, "Compressed size (this run): {}", convert(self.total_compressed_now as f64));
+        writeln!(f, "Uncompressed size (this run): {}", convert(self.total_uncompressed_now as f64));
+        writeln!(f, "Total savings (this run): {}%", 100f32 - self.savings_ratio_now() * 100.0);
+        writeln!(f, "");
+        writeln!(f, "Total compressed size: {}", convert(self.total_compressed as f64));
+        writeln!(f, "Total uncompressed size: {}", convert(self.total_uncompressed as f64));
+        writeln!(f, "Total savings: {}%", 100f32 - self.savings_ratio() * 100.0);
+
+        Ok(())
     }
 }
