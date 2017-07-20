@@ -17,7 +17,7 @@ use clap::{App, Arg};
 use errors::*;
 use lists::*;
 use structs::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::mpsc;
 
@@ -129,31 +129,46 @@ fn start_workers<'a>(params: &Arc<Parameters>) -> (chan::Sender<ThreadParam>, mp
     (tx, stats_rx, wg)
 }
 
+fn yield_file<F>(path: &Path, callback: &F) -> Result<()>
+    where F: Fn(&Path) -> Result<()>
+{
+    if path.is_dir() {
+        for child in path.read_dir()? {
+            yield_file(child?.path().as_path(), callback)?;
+        }
+        Ok(())
+    }
+    else {
+        callback(path)
+    }
+}
+
 fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, filters: &Vec<String>/*, exclude_filters: Vec<String>*/) -> Result<()> {
     let mut match_options = glob::MatchOptions::new();
     match_options.require_literal_leading_dot = true;
 
     for filter in filters {
-        //by default, rs-glob treats "**" as a directive to match only directories
-        //we can either rewrite "**" as "**/*" or recurse into directories below
         let new_filter = (&*filter).replace("**", "**/*");
         for entry in glob::glob_with(&new_filter, &match_options).map_err(|_| ErrorKind::InvalidIncludeFilter)? {
             match entry {
                 Ok(path) => {
-                    if is_blacklisted(&path)? {
-                        //this path has been excluded
-                        continue;
-                    }
-                    //make sure this is a file, not a folder
-                    match std::fs::metadata(&path) {
-                        Ok(metadata) => {
-                            if metadata.is_file() {
-                                send_queue.send(path);
-                            }
-                            continue; //skip otherwise
+                    yield_file(&path, &|path: &Path| {
+                        if is_blacklisted(path)? {
+                            //this path has been excluded
+                            return Ok(());
                         }
-                        Err(e) => errstln!("{}: {}", path.to_string_lossy(), e),
-                    }
+                        //make sure this is a file, not a folder
+                        match std::fs::metadata(path) {
+                            Ok(metadata) => {
+                                if metadata.is_file() {
+                                    let pbuff = path.to_path_buf();
+                                    send_queue.send(pbuff);
+                                }
+                            }
+                            Err(e) => errstln!("{}: {}", path.to_string_lossy(), e),
+                        };
+                        Ok(())
+                    })?
                 }
                 Err(e) => errstln!("{}", e),
             };
@@ -232,14 +247,7 @@ fn str_search(sorted: &[&str], search_term: &str, case_sensitive: bool) -> std::
     sorted.binary_search_by(|probe| probe.cmp(&&*term))
 }
 
-fn is_blacklisted(path: &PathBuf) -> Result<bool> {
-    //after some careful consideration, ignoring directories and files that start with a literal
-    //dot. We might add a feature to bypass this in the future.
-    if path.as_path().to_string_lossy().contains("/.") || path.as_path().to_string_lossy().starts_with(".") {
-        //errstln!("Skipping path with leading literal .: {}", path.display());
-        return Ok(true);
-    }
-
+fn is_blacklisted(path: &Path) -> Result<bool> {
     let r = match path.extension() {
         Some(x) => {
             let ext = x.to_str().ok_or(ErrorKind::InvalidCharactersInPath)?;
