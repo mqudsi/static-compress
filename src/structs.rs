@@ -96,14 +96,14 @@ impl Statistics {
 
 impl std::fmt::Display for Statistics {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(f, "");
+        writeln!(f, "")?;
         let table = table!(["", "This Run", "Total"],
                            ["Count", self.total_file_count_now.separated_string(), self.total_file_count.separated_string()],
                            ["Compressed Size", convert(self.total_compressed_now as f64), convert(self.total_compressed as f64)],
                            ["Uncompressed Size", convert(self.total_uncompressed_now as f64), convert(self.total_uncompressed as f64)],
                            ["Total Savings", format!("{:.2}%", 100f32 - 100f32 * self.savings_ratio_now()), format!("{:.2}%", 100f32 - 100f32 * self.savings_ratio())]);
 
-        writeln!(f, "{}", table);
+        writeln!(f, "{}", table)?;
         Ok(())
     }
 }
