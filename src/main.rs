@@ -1,4 +1,4 @@
-#[macro_use] extern crate error_chain; 
+#[macro_use] extern crate error_chain;
 #[macro_use] extern crate prettytable;
 #[macro_use] extern crate stderr;
 extern crate chan;
@@ -17,7 +17,7 @@ use clap::{App, Arg};
 use errors::*;
 use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
 use lists::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc;
 use structs::*;
@@ -142,18 +142,18 @@ fn start_workers<'a>(params: &Arc<Parameters>) -> (chan::Sender<ThreadParam>, mp
     (tx, stats_rx, wg)
 }
 
-fn yield_file<F>(path: &Path, globset: &GlobSet, callback: &F) -> Result<()>
-    where F: Fn(&Path) -> Result<()>
+fn yield_file<F>(path: PathBuf, globset: &GlobSet, callback: &F) -> Result<()>
+    where F: Fn(PathBuf) -> Result<()>
 {
     if path.is_dir() {
         for child in path.read_dir()? {
             let child_path = child?.path();
-            yield_file(child_path.as_path(), globset, callback)?;
+            yield_file(child_path, globset, callback)?;
         }
         Ok(())
     }
     else {
-        if globset.is_match(path) {
+        if globset.is_match(&path) {
             callback(path)?;
         }
         Ok(())
@@ -161,17 +161,16 @@ fn yield_file<F>(path: &Path, globset: &GlobSet, callback: &F) -> Result<()>
 }
 
 fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, globset: GlobSet/*, exclude_filters: Vec<String>*/) -> Result<()> {
-    yield_file(Path::new("./"), &globset, &|path: &Path| {
-        if is_blacklisted(path)? {
+    yield_file(Path::new("./").to_path_buf(), &globset, &|path: PathBuf| {
+        if is_blacklisted(&path)? {
             //this path has been excluded
             return Ok(());
         }
         //make sure this is a file, not a folder
-        match std::fs::metadata(path) {
+        match std::fs::metadata(&path) {
             Ok(metadata) => {
                 if metadata.is_file() {
-                    let pbuff = path.to_path_buf();
-                    send_queue.send(pbuff);
+                    send_queue.send(path);
                 }
             }
             Err(e) => errstln!("{}: {}", path.to_string_lossy(), e),
