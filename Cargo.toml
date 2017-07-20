@@ -7,7 +7,7 @@ homepage = "https://github.com/neosmart/static-compress"
 repository = "https://github.com/neosmart/static-compress"
 readme = "README.md"
 keywords = ["nginx", "gzip", "zopfli", "brotli", "apache"]
-categories = ["command-line-utilities", "compression", "web programming"]
+categories = ["command-line-utilities", "compression", "web-programming"]
 license = "MIT"
 
 [dependencies]
@@ -19,5 +19,7 @@ filetime = "0.1.10"
 flate2 = "0.2.19"
 glob = "0.2.11"
 pretty-bytes = "0.2.1"
+prettytable-rs = "0.6.7" 
+separator = "0.3.1"
 stderr = "0.7.1"
 zopfli = "0.3.6"

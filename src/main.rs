@@ -1,10 +1,12 @@
 #[macro_use] extern crate error_chain;
+#[macro_use] extern crate prettytable;
 #[macro_use] extern crate stderr;
 extern crate chan;
 extern crate clap;
 extern crate filetime;
 extern crate glob;
 extern crate pretty_bytes;
+extern crate separator;
 
 #[macro_use] mod errors;
 mod compression;
