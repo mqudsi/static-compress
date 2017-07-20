@@ -90,7 +90,7 @@ fn run() -> Result<()> {
 
 
     for ref inc_filter in &parameters.include_filters {
-        println!("{}", &inc_filter);
+        println!("Include: {}", &inc_filter);
     }
 
     //convert filters to paths and deal out conversion jobs
