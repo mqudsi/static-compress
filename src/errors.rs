@@ -10,5 +10,6 @@ error_chain! {
     }
     foreign_links {
         Io(::std::io::Error);
+        SystemTime(::std::time::SystemTimeError);
     }
 }

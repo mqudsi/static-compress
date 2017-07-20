@@ -172,9 +172,15 @@ fn worker_thread(params: Arc<Parameters>, rx: chan::Receiver<ThreadParam>) {
                     //don't compress files that are already compressed that haven't changed
                     if let Ok(dst_metadata) = std::fs::metadata(dst) {
                         //the destination already exists
-                        match src_metadata.modified()? == dst_metadata.modified()? {
-                            true => return Ok(()), //no need to recompress
-                            false => std::fs::remove_file(dst)?, //throw if we can't
+                        let src_seconds = src_metadata.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs();
+                        let dst_seconds = dst_metadata.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs();
+                        match src_seconds == dst_seconds {
+                            true => {
+                                return Ok(());//no need to recompress
+                            },
+                            false => {
+                                std::fs::remove_file(dst)?; //throw if we can't
+                            }
                         };
                     }
                     params.compressor.compress(src.as_path(), dst)?;
