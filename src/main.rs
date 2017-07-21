@@ -145,6 +145,11 @@ fn start_workers<'a>(params: &Arc<Parameters>) -> (chan::Sender<ThreadParam>, mp
 fn yield_file<F>(path: PathBuf, globset: &GlobSet, callback: &F) -> Result<()>
     where F: Fn(PathBuf) -> Result<()>
 {
+    if is_hidden(&path)? {
+        //we are ignoring .files and .directories
+        //we may add a command-line switch to control this behavior in the future
+        return Ok(());
+    }
     if path.is_dir() {
         for child in path.read_dir()? {
             let child_path = child?.path();
@@ -153,7 +158,7 @@ fn yield_file<F>(path: PathBuf, globset: &GlobSet, callback: &F) -> Result<()>
         Ok(())
     }
     else {
-        if globset.is_match(&path) {
+        if globset.is_match(&path) && !is_blacklisted(&path)? {
             callback(path)?;
         }
         Ok(())
@@ -247,6 +252,15 @@ fn str_search(sorted: &[&str], search_term: &str, case_sensitive: bool) -> std::
     };
 
     sorted.binary_search_by(|probe| probe.cmp(&&*term))
+}
+
+fn is_hidden(path: &Path) -> Result<bool> {
+    let hidden = match path.file_name() {
+        Some(x) => x.to_str().ok_or(ErrorKind::InvalidCharactersInPath)?
+            .starts_with("."),
+        None => false
+    };
+    Ok(hidden)
 }
 
 fn is_blacklisted(path: &Path) -> Result<bool> {
