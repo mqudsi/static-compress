@@ -150,36 +150,27 @@ fn yield_file<F>(path: PathBuf, globset: &GlobSet, callback: &F) -> Result<()>
         //we may add a command-line switch to control this behavior in the future
         return Ok(());
     }
+
     if path.is_dir() {
         for child in path.read_dir()? {
             let child_path = child?.path();
             yield_file(child_path, globset, callback)?;
         }
-        Ok(())
     }
     else {
-        if globset.is_match(&path) && !is_blacklisted(&path)? {
+        //I'm presuming the binary search in is_blacklisted is faster
+        //than globset.is_match, but we should benchmark it at some point
+        if !is_blacklisted(&path)? && globset.is_match(&path) {
             callback(path)?;
         }
-        Ok(())
     }
+
+    Ok(())
 }
 
 fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, globset: GlobSet/*, exclude_filters: Vec<String>*/) -> Result<()> {
     yield_file(Path::new("./").to_path_buf(), &globset, &|path: PathBuf| {
-        if is_blacklisted(&path)? {
-            //this path has been excluded
-            return Ok(());
-        }
-        //make sure this is a file, not a folder
-        match std::fs::metadata(&path) {
-            Ok(metadata) => {
-                if metadata.is_file() {
-                    send_queue.send(path);
-                }
-            }
-            Err(e) => errstln!("{}: {}", path.to_string_lossy(), e),
-        };
+        send_queue.send(path);
         Ok(())
     })
 }
