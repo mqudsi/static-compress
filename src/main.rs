@@ -22,6 +22,8 @@ use std::sync::Arc;
 use std::sync::mpsc;
 use structs::*;
 
+const DEBUG_FILTERS: bool = cfg!(debug_assertions);
+
 quick_main!(run);
 
 fn run() -> Result<()> {
@@ -104,7 +106,8 @@ fn run() -> Result<()> {
     let globset = builder.build().map_err(|_| ErrorKind::InvalidIncludeFilter)?;
 
     //convert filters to paths and deal out conversion jobs
-    dispatch_jobs(send_queue, globset/*, exclude_filters*/)?;
+
+    dispatch_jobs(send_queue, include_filters, globset/*, exclude_filters*/)?;
 
     //wait for all jobs to finish
     wait_group.wait();
@@ -168,11 +171,16 @@ fn yield_file<F>(path: PathBuf, globset: &GlobSet, callback: &F) -> Result<()>
     Ok(())
 }
 
-fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, globset: GlobSet/*, exclude_filters: Vec<String>*/) -> Result<()> {
-    yield_file(Path::new("./").to_path_buf(), &globset, &|path: PathBuf| {
-        send_queue.send(path);
-        Ok(())
-    })
+fn dispatch_jobs(send_queue: chan::Sender<ThreadParam>, filters: Vec<String>, globset: GlobSet/*, exclude_filters: Vec<String>*/) -> Result<()> {
+    let paths = extract_paths(&filters)?;
+    for path in paths {
+        yield_file(path, &globset, &|path: PathBuf| {
+            send_queue.send(path);
+            Ok(())
+        })?
+    }
+
+    Ok(())
 }
 
 fn worker_thread(params: Arc<Parameters>, stats_tx: mpsc::Sender<Statistics>, rx: chan::Receiver<ThreadParam>) {
@@ -267,3 +275,75 @@ fn is_blacklisted(path: &Path) -> Result<bool> {
     return Ok(r);
 }
 
+//Given a list of filters, extracts the directories that should be searched
+//To-Do: Also provide info about to what depth they should be recursed
+use std::collections::HashSet;
+fn extract_paths(filters: &Vec<String>) -> Result<HashSet<PathBuf>> {
+    use std::iter::FromIterator;
+
+    let mut dirs = std::collections::HashSet::<PathBuf>::new();
+
+    {
+        let insert_path = &mut |filter: &String, dir: PathBuf| {
+            if DEBUG_FILTERS {
+                println!("filter {} mapped to ./", filter);
+            }
+            dirs.insert(dir);
+        };
+
+        for filter in filters {
+            //take everything until the first expression
+            let mut last_char = None::<char>;
+            let dir;
+            {
+                let partial = filter.chars().take_while(|c| match c {
+                    &'?' | &'*' | &'{' | &'[' => false,
+                    c => { last_char = Some(c.clone()); true }
+                });
+                dir = String::from_iter(partial);
+            }
+
+            let dir = match dir.chars().next() {
+                Some(c) => match c {
+                    '.' | '/' => PathBuf::from(dir),
+                    _ => {
+                        let mut pb = PathBuf::from("./");
+                        pb.push(dir);
+                        pb
+                    }
+                },
+                None => {
+                    insert_path(filter, PathBuf::from("./"));
+                    continue;
+                }
+            };
+
+            if dir.to_str().ok_or(ErrorKind::InvalidCharactersInPath)?.ends_with(filter) {
+                //the "dir" is actually a full path to a single file
+                //return it as-is
+                insert_path(filter, dir);
+                continue;
+            }
+
+            if last_char == Some('/') {
+                //dir is a already a directory, return it as-is
+                insert_path(filter, dir);
+                continue;
+            }
+
+            //we need to extract the directory from the path we have
+            let dir = match PathBuf::from(dir).parent() {
+                Some(parent) => parent.to_path_buf(),
+                None => PathBuf::from("./"),
+            };
+
+            insert_path(filter, dir);
+        }
+    }
+
+    if DEBUG_FILTERS {
+        println!("final dirs: {:?}", dirs);
+    }
+
+    Ok(dirs)
+}
