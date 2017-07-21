@@ -97,7 +97,7 @@ fn run() -> Result<()> {
     for filter in include_filters.iter() {
         let glob = GlobBuilder::new(filter)
             .case_insensitive(!case_sensitive)
-            //.literal_separator(true) //this would prevent repeated entry into subdirs
+            .literal_separator(true)
             .build().map_err(|_| ErrorKind::InvalidIncludeFilter)?;
         builder.add(glob);
     }
