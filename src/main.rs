@@ -23,6 +23,11 @@ use std::sync::mpsc;
 use structs::*;
 
 const DEBUG_FILTERS: bool = cfg!(debug_assertions);
+fn debug(message: &str) {
+    if DEBUG_FILTERS {
+        errstln!("{}", message);
+    }
+}
 
 quick_main!(run);
 
@@ -90,12 +95,13 @@ fn run() -> Result<()> {
     let parameters = Arc::<Parameters>::new(temp);
     let (send_queue, stats_rx, wait_group) = start_workers(&parameters);
 
-    let include_filters: Vec<String> = match matches.values_of("filters") {
+    let mut include_filters: Vec<String> = match matches.values_of("filters") {
         Some(values) => Ok(values.map(|s| s.to_owned()).collect()),
         None => Err(ErrorKind::InvalidUsage),
     }?;
 
     let mut builder = GlobSetBuilder::new();
+    fix_filters(&mut include_filters);
     for filter in include_filters.iter() {
         let glob = GlobBuilder::new(filter)
             .case_insensitive(!case_sensitive)
@@ -275,6 +281,21 @@ fn is_blacklisted(path: &Path) -> Result<bool> {
     return Ok(r);
 }
 
+//pre-pends ./ to relative paths
+fn fix_filters(mut filters: &mut Vec<String>) {
+    for i in 0..filters.len() {
+        let new_path;
+        {
+            let ref path = filters[i];
+            match path.chars().next().expect("Received blank filter!") {
+                '.' | '/' => continue,
+                _ => new_path = format!("./{}", path) //un-prefixed path
+            }
+        }
+        filters[i] = new_path;
+    }
+}
+
 //Given a list of filters, extracts the directories that should be searched
 //To-Do: Also provide info about to what depth they should be recursed
 use std::collections::HashSet;
@@ -285,9 +306,7 @@ fn extract_paths(filters: &Vec<String>) -> Result<HashSet<PathBuf>> {
 
     {
         let insert_path = &mut |filter: &String, dir: PathBuf| {
-            if DEBUG_FILTERS {
-                println!("filter {} mapped to ./", filter);
-            }
+            debug(&format!("filter {} mapped to search {}", filter, dir.display()));
             dirs.insert(dir);
         };
 
@@ -341,9 +360,7 @@ fn extract_paths(filters: &Vec<String>) -> Result<HashSet<PathBuf>> {
         }
     }
 
-    if DEBUG_FILTERS {
-        println!("final dirs: {:?}", dirs);
-    }
+    debug(&format!("final search paths: {:?}", dirs));
 
     Ok(dirs)
 }
