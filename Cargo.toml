@@ -6,7 +6,7 @@ description = "Create a compressed copy of files matching a glob to serve static
 homepage = "https://github.com/neosmart/static-compress"
 repository = "https://github.com/neosmart/static-compress"
 readme = "README.md"
-keywords = ["nginx", "gzip", "zopfli", "brotli", "apache"]
+keywords = ["nginx", "gzip", "compression", "brotli", "apache"]
 categories = ["command-line-utilities", "compression", "web-programming"]
 license = "MIT"
 
