@@ -32,6 +32,17 @@ Supported filters/expressions include `*` to match any filename pattern, `**` to
 
 Multithreading may be achieved by means of the `-j` switch (akin to `make`), and can be used to specify the number of files to be compressed simultaneously across multiple threads. By default, `static-compress` uses only one thread.
 
+### Supported Globs/Expressions
+
+`static-compress` supports the following filter expressions, all of which will match the same file `foo.bar`:
+
+* `./relative/path/to/foo.bar`
+* `/absolute/path/to/foo.bar`
+* `relative/*/*/foo.ba?`
+* `**/foo.bar`
+* `**/foo.ba[rz]`
+* `**/{foo|something}.bar`
+
 ### Supported Compression Methods
 
 Currently, `static-compress` supports the creation of `gzip` or `brotli` compressed versions of matching files. Almost all web servers and web browsers in use today have full `gzip` support. `brotli` is a newer web-compression format [developed by Google](https://en.wikipedia.org/wiki/Brotli), that can be used to achieve higher levels of compression than `gzip`, though compression is more taxing on the server. For that reason, it is especially desirable to be able to pre-compress a given directory tree instead of (re-)compressing files each time they are requested.
