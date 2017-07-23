@@ -280,21 +280,6 @@ fn is_blacklisted(path: &Path) -> Result<bool> {
     return Ok(r);
 }
 
-//pre-pends ./ to relative paths
-fn fix_filters(mut filters: &mut Vec<String>) {
-    for i in 0..filters.len() {
-        let new_path;
-        {
-            let ref path = filters[i];
-            match path.chars().next().expect("Received blank filter!") {
-                '.' | '/' => continue,
-                _ => new_path = format!("./{}", path) //un-prefixed path
-            }
-        }
-        filters[i] = new_path;
-    }
-}
-
 //Given a list of filters, extracts the directories that should be searched
 //To-Do: Also provide info about to what depth they should be recursed
 use std::collections::HashSet;
