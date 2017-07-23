@@ -101,6 +101,13 @@ fn run() -> Result<()> {
     }?;
 
     let mut builder = GlobSetBuilder::new();
+    for filter in include_filters.iter() {
+        let glob = GlobBuilder::new(filter)
+            .case_insensitive(!case_sensitive)
+            .literal_separator(true)
+            .build().map_err(|_| ErrorKind::InvalidIncludeFilter)?;
+        builder.add(glob);
+    }
     let globset = builder.build().map_err(|_| ErrorKind::InvalidIncludeFilter)?;
 
     //convert filters to paths and deal out conversion jobs
