@@ -57,6 +57,11 @@ fn run() -> Result<()> {
             .value_name("EXT")
             .long("extension")
             .help("The extension to use for compressed files (default: gz, br, or webp)"))
+        .arg(Arg::with_name("quality")
+             .short("q")
+             .long("quality")
+             .takes_value(true)
+             .help("A quality parameter to be passed to the encoder. Algorithm-specific."))
         /*.arg(Arg::with_name("excludes")
             .short("x")
             .value_name("FILTER")
@@ -65,12 +70,12 @@ fn run() -> Result<()> {
             .help("Exclude files matching this glob expression"))*/
         .get_matches();
 
-    fn get_parameter<'a, T>(matches: &clap::ArgMatches, name: &str, default_value: T) -> Result<T>
+    fn get_parameter<'a, T>(matches: &clap::ArgMatches, name: &'static str, default_value: T) -> Result<T>
         where T: std::str::FromStr
     {
         match matches.value_of(name) {
             Some(v) => {
-                Ok(v.parse().map_err(|_| ErrorKind::InvalidParameterValue(name.to_owned()))?)
+                Ok(v.parse().map_err(|_| ErrorKind::InvalidParameterValue(name))?)
             }
             None => Ok(default_value),
         }
@@ -84,6 +89,10 @@ fn run() -> Result<()> {
             .trim_matches(|c: char| c.is_whitespace() || c.is_control() || c == '.')
             .to_owned(),
         compressor: compressor,
+        quality: match matches.value_of("quality") {
+            Some(q) => Some(q.parse::<u8>().map_err(|_| ErrorKind::InvalidParameterValue("quality"))?),
+            None => None
+        },
         threads: get_parameter(&matches, "threads", 1)?,
     };
 

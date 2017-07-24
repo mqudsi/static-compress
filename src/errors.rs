@@ -1,6 +1,6 @@
 error_chain! {
     errors {
-        InvalidParameterValue(pname: String) {
+        InvalidParameterValue(pname: &'static str) {
             description("An invalid value was supplied for a command line argument.")
             display("Invalid value supplied for parameter {}", pname)
         }
