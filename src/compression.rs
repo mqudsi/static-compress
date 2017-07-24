@@ -26,7 +26,7 @@ impl FileCompressor for CompressionAlgorithm {
             &CompressionAlgorithm::GZip => gzip_compress(src, dst, quality),
             &CompressionAlgorithm::Brotli => brotli_compress(src, dst, quality),
             &CompressionAlgorithm::WebP => webp_compress(src, dst, quality),
-            &CompressionAlgorithm::Zopfli => zopfli_compress(src, dst),
+            &CompressionAlgorithm::Zopfli => zopfli_compress(src, dst, quality),
             // _ => bail!("Compression algorithm not implemented!"),
         }
     }
@@ -81,7 +81,11 @@ fn brotli_compress(src_path: &Path, dst_path: &Path, quality: Option<u8>) -> Res
     Ok(())
 }
 
-fn zopfli_compress(src_path: &Path, dst_path: &Path) -> Result<()> {
+fn zopfli_compress(src_path: &Path, dst_path: &Path, quality: Option<u8>) -> Result<()> {
+    if quality.is_some() {
+        bail!("--quality is not implemented for zopfli compression");
+    }
+
     let mut src = File::open(src_path)?;
     let mut dst = File::create(dst_path)?;
 
