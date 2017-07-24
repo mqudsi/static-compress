@@ -95,4 +95,4 @@ Note that the file type options for both modules (``brotli_types`` and `gzip_typ
 
 `static-compress` is made freely available to the public under the terms of the MIT license. `static-compress` is open source and would not have been possible without the `flate2` and `zopfli` crate authors, as well as the original creators of the `brotli`, `gzip`, and `zopfli` algorithms.
 
-`static-compress` is written by Mahmoud Al-Qudsi <[mqudsi@neosmart.net](mailto:mqudsi@neosmart.net)> under the stewardship of NeoSmart Technologies. `static-compress` is a copyright of NeoSmart Technologies, 2017. All rights reserved.
+`static-compress` is written by Mahmoud Al-Qudsi <[mqudsi@neosmart.net](mailto:mqudsi@neosmart.net)> under the stewardship of NeoSmart Technologies. The name `static-compress` and all other rights not conferred by the MIT license are reserved and copyright of NeoSmart Technologies, 2017.
