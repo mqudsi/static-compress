@@ -33,12 +33,8 @@ impl std::str::FromStr for CompressionAlgorithm {
     }
 }
 
-pub trait DefaultFileCompressor {
-    fn compress(&self, source: &Path, destination: &Path) -> Result<()>;
-}
-
 pub trait FileCompressor {
-    fn compress(&self, source: &Path, destination: &Path, level: u8);
+    fn compress(&self, source: &Path, destination: &Path, quality: Option<u8>) -> Result<()>;
 }
 
 pub trait CompressionFormat {

@@ -234,7 +234,7 @@ fn worker_thread(params: Arc<Parameters>, stats_tx: mpsc::Sender<Statistics>, rx
                             }
                         };
                     }
-                    params.compressor.compress(src.as_path(), dst)?;
+                    params.compressor.compress(src.as_path(), dst, params.quality)?;
                     let dst_metadata = std::fs::metadata(dst)?;
                     local_stats.update(src_metadata.len(), dst_metadata.len(), true);
                     let src_modified = filetime::FileTime::from_last_modification_time(&src_metadata);

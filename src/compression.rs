@@ -20,12 +20,12 @@ impl CompressionFormat for CompressionAlgorithm {
     }
 }
 
-impl DefaultFileCompressor for CompressionAlgorithm {
-    fn compress(&self, src: &Path, dst: &Path) -> Result<()> {
+impl FileCompressor for CompressionAlgorithm {
+    fn compress(&self, src: &Path, dst: &Path, quality: Option<u8>) -> Result<()> {
         match self {
             &CompressionAlgorithm::GZip => gzip_compress(src, dst),
             &CompressionAlgorithm::Brotli => brotli_compress(src, dst),
-            &CompressionAlgorithm::WebP => webp_compress(src, dst),
+            &CompressionAlgorithm::WebP => webp_compress(src, dst, quality),
             &CompressionAlgorithm::Zopfli => zopfli_compress(src, dst),
             // _ => bail!("Compression algorithm not implemented!"),
         }
@@ -78,12 +78,12 @@ fn zopfli_compress(src_path: &Path, dst_path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn webp_compress(src_path: &Path, dst_path: &Path) -> Result<()> {
+fn webp_compress(src_path: &Path, dst_path: &Path, quality: Option<u8>) -> Result<()> {
     use std::process::Command;
 
     let output = Command::new("cwebp")
         .arg("-q")
-        .arg("90")
+        .arg(quality.unwrap_or(90).to_string())
         .arg(src_path.as_os_str())
         .arg("-o")
         .arg(dst_path.as_os_str())
