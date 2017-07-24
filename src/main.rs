@@ -95,12 +95,13 @@ fn run() -> Result<()> {
     let parameters = Arc::<Parameters>::new(temp);
     let (send_queue, stats_rx, wait_group) = start_workers(&parameters);
 
-    let include_filters: Vec<String> = match matches.values_of("filters") {
+    let mut include_filters: Vec<String> = match matches.values_of("filters") {
         Some(values) => Ok(values.map(|s| s.to_owned()).collect()),
         None => Err(ErrorKind::InvalidUsage),
     }?;
 
     let mut builder = GlobSetBuilder::new();
+    fix_filters(&mut include_filters);
     for filter in include_filters.iter() {
         let glob = GlobBuilder::new(filter)
             .case_insensitive(!case_sensitive)
@@ -111,6 +112,7 @@ fn run() -> Result<()> {
     let globset = builder.build().map_err(|_| ErrorKind::InvalidIncludeFilter)?;
 
     //convert filters to paths and deal out conversion jobs
+
     dispatch_jobs(send_queue, include_filters, globset/*, exclude_filters*/)?;
 
     //wait for all jobs to finish
@@ -167,7 +169,6 @@ fn yield_file<F>(path: PathBuf, globset: &GlobSet, callback: &F) -> Result<()>
     else {
         //I'm presuming the binary search in is_blacklisted is faster
         //than globset.is_match, but we should benchmark it at some point
-        //debug(&format!("{}: is_blacklisted: {}, globset.is_match: {}", path.display(), is_blacklisted(&path)?, globset.is_match(&path)));
         if !is_blacklisted(&path)? && globset.is_match(&path) {
             callback(path)?;
         }
@@ -309,13 +310,13 @@ fn extract_paths(filters: &Vec<String>) -> Result<HashSet<PathBuf>> {
                 Some(c) => match c {
                     '.' | '/' => PathBuf::from(dir),
                     _ => {
-                        let mut pb = PathBuf::from("");
+                        let mut pb = PathBuf::from("./");
                         pb.push(dir);
                         pb
                     }
                 },
                 None => {
-                    insert_path(filter, PathBuf::from(""));
+                    insert_path(filter, PathBuf::from("./"));
                     continue;
                 }
             };
@@ -336,7 +337,7 @@ fn extract_paths(filters: &Vec<String>) -> Result<HashSet<PathBuf>> {
             //we need to extract the directory from the path we have
             let dir = match PathBuf::from(dir).parent() {
                 Some(parent) => parent.to_path_buf(),
-                None => PathBuf::from(""),
+                None => PathBuf::from("./"),
             };
 
             insert_path(filter, dir);
