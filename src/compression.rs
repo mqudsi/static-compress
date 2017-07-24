@@ -81,16 +81,18 @@ fn zopfli_compress(src_path: &Path, dst_path: &Path) -> Result<()> {
 fn webp_compress(src_path: &Path, dst_path: &Path) -> Result<()> {
     use std::process::Command;
 
-    let mut cmd = Command::new("cmd")
+    let output = Command::new("cwebp")
         .arg("-q")
         .arg("90")
         .arg(src_path.as_os_str())
         .arg("-o")
         .arg(dst_path.as_os_str())
-        .spawn()
+        .output()
         .chain_err(|| "Error executing cwebp!")?;
 
-    cmd.wait()?;
+    if !output.status.success() {
+        bail!("Error compressing via webp: {:?}", output);
+    }
 
     Ok(())
 }
