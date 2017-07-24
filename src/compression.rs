@@ -37,10 +37,12 @@ fn gzip_compress(src_path: &Path, dst_path: &Path, quality: Option<u8>) -> Resul
     let dst = File::create(dst_path)?;
 
     let level = match quality {
+        None => flate2::Compression::Default,
         Some(0) => flate2::Compression::None,
         Some(1) => flate2::Compression::Fast,
-        Some(9) => flate2::Compression::Best,
-        _ => flate2::Compression::Default,
+        Some(2...6) => flate2::Compression::Default,
+        Some(3...9) => flate2::Compression::Best,
+        _ => bail!("Invalid --quality parameter specified!"),
     };
 
     let mut encoder = flate2::write::GzEncoder::new(dst, level);
