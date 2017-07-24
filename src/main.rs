@@ -39,7 +39,7 @@ fn run() -> Result<()> {
         .arg(Arg::with_name("compressor")
             .short("c")
             .long("compressor")
-            .value_name("[brotli|gzip|zopfli]")
+            .value_name("[brotli|gzip|zopfli|webp]")
             .help("The compressor to use (default: gzip)")
             .takes_value(true))
         .arg(Arg::with_name("threads")
@@ -56,7 +56,7 @@ fn run() -> Result<()> {
             .short("e")
             .value_name("EXT")
             .long("extension")
-            .help("The extension to use for compressed files (default: gz or br)"))
+            .help("The extension to use for compressed files (default: gz, br, or webp)"))
         /*.arg(Arg::with_name("excludes")
             .short("x")
             .value_name("FILTER")
@@ -268,7 +268,6 @@ fn is_hidden(path: &Path) -> Result<bool> {
 }
 
 fn is_blacklisted(path: &Path) -> Result<bool> {
-
     let r = match path.extension() {
         Some(x) => {
             let ext = x.to_str().ok_or(ErrorKind::InvalidCharactersInPath)?;

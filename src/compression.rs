@@ -14,6 +14,7 @@ impl CompressionFormat for CompressionAlgorithm {
         match self {
             &CompressionAlgorithm::Brotli => "br",
             &CompressionAlgorithm::GZip => "gz",
+            &CompressionAlgorithm::WebP => "webp",
             &CompressionAlgorithm::Zopfli => "gz",
         }
     }
@@ -24,6 +25,7 @@ impl DefaultFileCompressor for CompressionAlgorithm {
         match self {
             &CompressionAlgorithm::GZip => gzip_compress(src, dst),
             &CompressionAlgorithm::Brotli => brotli_compress(src, dst),
+            &CompressionAlgorithm::WebP => webp_compress(src, dst),
             &CompressionAlgorithm::Zopfli => zopfli_compress(src, dst),
             // _ => bail!("Compression algorithm not implemented!"),
         }
@@ -72,6 +74,23 @@ fn zopfli_compress(src_path: &Path, dst_path: &Path) -> Result<()> {
     src.read_to_end(&mut src_data)?;
 
     zopfli::compress(&zopfli::Options::default(), &zopfli::Format::Gzip, &mut src_data, &mut dst)?;
+
+    Ok(())
+}
+
+fn webp_compress(src_path: &Path, dst_path: &Path) -> Result<()> {
+    use std::process::Command;
+
+    let mut cmd = Command::new("cmd")
+        .arg("-q")
+        .arg("90")
+        .arg(src_path.as_os_str())
+        .arg("-o")
+        .arg(dst_path.as_os_str())
+        .spawn()
+        .chain_err(|| "Error executing cwebp!")?;
+
+    cmd.wait()?;
 
     Ok(())
 }

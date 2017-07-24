@@ -13,6 +13,7 @@ pub struct Parameters {
 pub enum CompressionAlgorithm {
     Brotli,
     GZip,
+    WebP,
     Zopfli,
 }
 
@@ -22,6 +23,7 @@ impl std::str::FromStr for CompressionAlgorithm {
         let r = match s {
             "gzip" => CompressionAlgorithm::GZip,
             "brotli" => CompressionAlgorithm::Brotli,
+            "webp" => CompressionAlgorithm::WebP,
             "zopfli" => CompressionAlgorithm::Zopfli,
             _ => bail!("Unsupported compression algorithm option set!"),
         };
