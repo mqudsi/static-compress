@@ -24,7 +24,7 @@ impl FileCompressor for CompressionAlgorithm {
     fn compress(&self, src: &Path, dst: &Path, quality: Option<u8>) -> Result<()> {
         match self {
             &CompressionAlgorithm::GZip => gzip_compress(src, dst, quality),
-            &CompressionAlgorithm::Brotli => brotli_compress(src, dst),
+            &CompressionAlgorithm::Brotli => brotli_compress(src, dst, quality),
             &CompressionAlgorithm::WebP => webp_compress(src, dst, quality),
             &CompressionAlgorithm::Zopfli => zopfli_compress(src, dst),
             // _ => bail!("Compression algorithm not implemented!"),
@@ -58,12 +58,18 @@ fn gzip_compress(src_path: &Path, dst_path: &Path, quality: Option<u8>) -> Resul
     Ok(())
 }
 
-fn brotli_compress(src_path: &Path, dst_path: &Path) -> Result<()> {
+fn brotli_compress(src_path: &Path, dst_path: &Path, quality: Option<u8>) -> Result<()> {
     let mut src = File::open(src_path)?;
     let dst = File::create(dst_path)?;
 
+    let level = match quality {
+        None => 6,
+        Some(q @ 0...11) => q,
+        _ => bail!("Invalid --quality parameter specified!"),
+    };
+
+    let mut encoder = brotli2::write::BrotliEncoder::new(dst, level as u32);
     let mut buf = [0u8; 1024];
-    let mut encoder = brotli2::write::BrotliEncoder::new(dst, 6);
     loop {
         let bytes_read = src.read(&mut buf).chain_err(|| "Error reading from source file!")?;
         match bytes_read {
