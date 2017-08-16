@@ -33,7 +33,7 @@ quick_main!(run);
 
 fn run() -> Result<()> {
     let matches = App::new("static-compress")
-        .version("0.3")
+        .version("0.3.2")
         .about("Create statically-compresed copies of matching files")
         .author("NeoSmart Technologies")
         .arg(Arg::with_name("compressor")
