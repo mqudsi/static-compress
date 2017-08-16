@@ -22,8 +22,8 @@ impl std::str::FromStr for CompressionAlgorithm {
     type Err = errors::Error;
     fn from_str(s: &str) -> Result<Self> {
         let r = match s {
-            "gzip" => CompressionAlgorithm::GZip,
-            "brotli" => CompressionAlgorithm::Brotli,
+            "gz" | "gzip" => CompressionAlgorithm::GZip,
+            "br" | "brotli" => CompressionAlgorithm::Brotli,
             "webp" => CompressionAlgorithm::WebP,
             "zopfli" => CompressionAlgorithm::Zopfli,
             _ => bail!("Unsupported compression algorithm option set!"),
