@@ -216,7 +216,6 @@ fn worker_thread(params: Arc<Parameters>, stats_tx: mpsc::Sender<Statistics>, rx
 
             //again, in a scope for error handling
             |local_stats: &mut Statistics| -> Result<()> {
-                    println!("{}", src.to_string_lossy());
                     let src_metadata = std::fs::metadata(src)?;
 
                     //don't compress files that are already compressed that haven't changed
@@ -234,6 +233,8 @@ fn worker_thread(params: Arc<Parameters>, stats_tx: mpsc::Sender<Statistics>, rx
                             }
                         };
                     }
+
+                    println!("{}", src.to_string_lossy());
                     params.compressor.compress(src.as_path(), dst, params.quality)?;
                     let dst_metadata = std::fs::metadata(dst)?;
                     local_stats.update(src_metadata.len(), dst_metadata.len(), true);
