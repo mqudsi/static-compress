@@ -37,11 +37,11 @@ fn gzip_compress(src_path: &Path, dst_path: &Path, quality: Option<u8>) -> Resul
     let dst = File::create(dst_path)?;
 
     let level = match quality {
-        None => flate2::Compression::Default,
-        Some(0) => flate2::Compression::None,
-        Some(1) => flate2::Compression::Fast,
-        Some(2...6) => flate2::Compression::Default,
-        Some(3...9) => flate2::Compression::Best,
+        None => flate2::Compression::default(),
+        Some(0) => flate2::Compression::none(),
+        Some(1) => flate2::Compression::fast(),
+        Some(2..=6) => flate2::Compression::default(),
+        Some(3..=9) => flate2::Compression::best(),
         _ => bail!("Invalid --quality parameter specified!"),
     };
 
@@ -64,7 +64,7 @@ fn brotli_compress(src_path: &Path, dst_path: &Path, quality: Option<u8>) -> Res
 
     let level = match quality {
         None => 6,
-        Some(q @ 0...11) => q,
+        Some(q @ 0..=11) => q,
         _ => bail!("Invalid --quality parameter specified!"),
     };
 
