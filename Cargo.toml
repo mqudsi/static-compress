@@ -1,6 +1,6 @@
 [package]
 name = "static-compress"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Mahmoud Al-Qudsi <mqudsi@neosmart.net>"]
 description = "Create a compressed copy of files matching a glob to serve statically compressed files with a web server"
 homepage = "https://github.com/neosmart/static-compress"
@@ -19,7 +19,7 @@ filetime = "0.2"
 flate2 = "1.0"
 globset = "0.4"
 pretty-bytes = "0.2.1"
-prettytable-rs = "0.8" 
+prettytable-rs = "0.8"
 separator = "0.4"
 stderr = "0.8"
 zopfli = "0.5.0"
