@@ -33,9 +33,9 @@ quick_main!(run);
 
 fn run() -> Result<()> {
     let matches = App::new("static-compress")
-        .version("0.3.2")
+        .version("0.3.3")
         .about("Create statically-compresed copies of matching files")
-        .author("NeoSmart Technologies")
+        .author("Mahmoud Al-Qudsi, NeoSmart Technologies")
         .arg(Arg::new("compressor")
             .short('c')
             .long("compressor")
@@ -62,6 +62,23 @@ fn run() -> Result<()> {
              .long("quality")
              .takes_value(true)
              .help("A quality parameter to be passed to the encoder. Algorithm-specific."))
+        .arg(Arg::new("quiet")
+             .long("quiet")
+             .takes_value(false)
+             .help("Does not display progress or end-of-run summary table."))
+        .arg(Arg::new("no-progress")
+             .long("no-progress")
+             .takes_value(false)
+             .help("Do not list files as they are compressed."))
+        .arg(Arg::new("no-summary")
+             .long("no-summary")
+             .takes_value(false)
+             .help("Hide end-of-run statistics summary."))
+        .arg(Arg::new("nocase")
+             .short('i')
+             .long("case-insensitive")
+             .takes_value(false)
+             .help("Use case-insensitive pattern matching."))
         /*.arg(Arg::new("excludes")
             .short('x')
             .value_name("FILTER")
@@ -83,7 +100,10 @@ fn run() -> Result<()> {
 
     let case_sensitive = !matches.is_present("nocase");
     let compressor = get_parameter(&matches, "compressor", CompressionAlgorithm::GZip)?;
-    let temp = Parameters {
+    let show_summary = !matches.contains_id("no-summary") && !matches.contains_id("quiet");
+    let show_progress = !matches.contains_id("no-progress") && !matches.contains_id("quiet");
+
+    let parameters = Arc::new(Parameters {
         extension: matches.value_of("ext")
             .unwrap_or(compressor.extension())
             .trim_matches(|c: char| c.is_whitespace() || c.is_control() || c == '.')
@@ -93,15 +113,11 @@ fn run() -> Result<()> {
             Some(q) => Some(q.parse::<u8>().map_err(|_| ErrorKind::InvalidParameterValue("quality"))?),
             None => None
         },
+        show_summary,
+        show_progress,
         threads: get_parameter(&matches, "threads", 1)?,
-    };
+    });
 
-    /*let exclude_filters = match matches.values_of("exclude") {
-        Some(values)=> values.map(|s| s.to_owned()).collect(),
-        None => Vec::<String>::new(),
-    };*/
-
-    let parameters = Arc::<Parameters>::new(temp);
     let (send_queue, stats_rx, wait_group) = start_workers(&parameters);
 
     let mut include_filters: Vec<String> = match matches.values_of("filters") {
@@ -127,12 +143,14 @@ fn run() -> Result<()> {
     wait_group.wait();
 
     // Merge statistics from all threads
-    let mut stats = Statistics::new();
-    while let Ok(thread_stats) = stats_rx.recv() {
-        stats.merge(&thread_stats);
-    }
+    if show_summary {
+        let mut stats = Statistics::new();
+        while let Ok(thread_stats) = stats_rx.recv() {
+            stats.merge(&thread_stats);
+        }
 
-    println!("{}", stats);
+        println!("{}", stats);
+    }
 
     Ok(())
 }
@@ -235,7 +253,9 @@ fn worker_thread(params: Arc<Parameters>, stats_tx: mpsc::Sender<Statistics>, rx
                         };
                     }
 
-                    println!("{}", src.to_string_lossy());
+                    if params.show_progress {
+                        println!("{}", src.display());
+                    }
                     params.compressor.compress(src.as_path(), dst, params.quality)?;
                     let dst_metadata = std::fs::metadata(dst)?;
                     local_stats.update(src_metadata.len(), dst_metadata.len(), true);

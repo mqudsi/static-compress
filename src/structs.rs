@@ -9,6 +9,8 @@ pub struct Parameters {
     pub extension: String,
     pub quality: Option<u8>,
     pub threads: usize,
+    pub show_progress: bool,
+    pub show_summary: bool,
 }
 
 pub enum CompressionAlgorithm {
