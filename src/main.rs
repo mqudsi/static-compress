@@ -5,8 +5,8 @@ extern crate chan;
 extern crate clap;
 extern crate filetime;
 extern crate globset;
-extern crate pretty_bytes;
 extern crate separator;
+extern crate size;
 
 #[macro_use] mod errors;
 mod compression;

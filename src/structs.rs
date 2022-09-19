@@ -1,7 +1,7 @@
 use ::*;
 use errors::*;
-use pretty_bytes::converter::convert;
 use separator::Separatable;
+use size::Size;
 use std::path::Path;
 
 pub struct Parameters {
@@ -97,8 +97,8 @@ impl std::fmt::Display for Statistics {
         writeln!(f, "")?;
         let table = table!(["", "This Run", "Total"],
                            ["Count", self.total_file_count_now.separated_string(), self.total_file_count.separated_string()],
-                           ["Compressed Size", convert(self.total_compressed_now as f64), convert(self.total_compressed as f64)],
-                           ["Uncompressed Size", convert(self.total_uncompressed_now as f64), convert(self.total_uncompressed as f64)],
+                           ["Compressed Size", Size::from_bytes(self.total_compressed_now), Size::from_bytes(self.total_compressed)],
+                           ["Uncompressed Size", Size::from_bytes(self.total_uncompressed_now), Size::from_bytes(self.total_uncompressed)],
                            ["Total Savings", format!("{:.2}%", 100f32 - 100f32 * self.savings_ratio_now()), format!("{:.2}%", 100f32 - 100f32 * self.savings_ratio())]);
 
         writeln!(f, "{}", table)?;
