@@ -86,13 +86,10 @@ fn zopfli_compress(src_path: &Path, dst_path: &Path, quality: Option<u8>) -> Res
         bail!("--quality is not implemented for zopfli compression");
     }
 
-    let mut src = File::open(src_path)?;
-    let mut dst = File::create(dst_path)?;
+    let src = File::open(src_path)?;
+    let dst = File::create(dst_path)?;
 
-    let mut src_data = Vec::<u8>::new();
-    src.read_to_end(&mut src_data)?;
-
-    zopfli::compress(&zopfli::Options::default(), &zopfli::Format::Gzip, &mut src_data, &mut dst)?;
+    zopfli::compress(&zopfli::Options::default(), &zopfli::Format::Gzip, src, dst)?;
 
     Ok(())
 }
