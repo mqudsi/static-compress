@@ -283,12 +283,14 @@ fn worker_thread(params: Arc<Parameters>, stats_tx: mpsc::Sender<Statistics>, rx
 }
 
 fn str_search(sorted: &[&str], search_term: &str, case_sensitive: bool) -> std::result::Result<usize, usize> {
+    use std::borrow::Cow;
+
     let term = match case_sensitive {
-        true => search_term.to_owned(),
-        false => search_term.to_lowercase(),
+        true => Cow::from(search_term),
+        false => if search_term.chars().all(char::is_lowercase) { Cow::from(search_term) } else { Cow::from(search_term.to_lowercase()) },
     };
 
-    sorted.binary_search_by(|probe| probe.cmp(&&*term))
+    sorted.binary_search_by(|probe| (*probe).cmp(term.as_ref()))
 }
 
 fn is_hidden(path: &Path) -> Result<bool> {
