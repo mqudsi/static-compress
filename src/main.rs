@@ -88,7 +88,7 @@ fn run() -> Result<()> {
             .unwrap_or(compressor.extension())
             .trim_matches(|c: char| c.is_whitespace() || c.is_control() || c == '.')
             .to_owned(),
-        compressor: compressor,
+        compressor,
         quality: match matches.value_of("quality") {
             Some(q) => Some(q.parse::<u8>().map_err(|_| ErrorKind::InvalidParameterValue("quality"))?),
             None => None
@@ -120,14 +120,13 @@ fn run() -> Result<()> {
     }
     let globset = builder.build().map_err(|_| ErrorKind::InvalidIncludeFilter)?;
 
-    //convert filters to paths and deal out conversion jobs
-
+    // Convert filters to paths and deal out conversion jobs
     dispatch_jobs(send_queue, include_filters, globset/*, exclude_filters*/)?;
 
-    //wait for all jobs to finish
+    // Wait for all jobs to finish
     wait_group.wait();
 
-    //merge statistics from all threads
+    // Merge statistics from all threads
     let mut stats = Statistics::new();
     while let Ok(thread_stats) = stats_rx.recv() {
         stats.merge(&thread_stats);
@@ -164,8 +163,8 @@ fn yield_file<F>(path: PathBuf, globset: &GlobSet, callback: &F) -> Result<()>
     where F: Fn(PathBuf) -> Result<()>
 {
     if is_hidden(&path)? {
-        //we are ignoring .files and .directories
-        //we may add a command-line switch to control this behavior in the future
+        // We are ignoring .files and .directories
+        // We may add a command-line switch to control this behavior in the future
         return Ok(());
     }
 
@@ -176,8 +175,8 @@ fn yield_file<F>(path: PathBuf, globset: &GlobSet, callback: &F) -> Result<()>
         }
     }
     else {
-        //I'm presuming the binary search in is_blacklisted is faster
-        //than globset.is_match, but we should benchmark it at some point
+        // I'm presuming the binary search in is_blacklisted is faster
+        // than globset.is_match, but we should benchmark it at some point
         if !is_blacklisted(&path)? && globset.is_match(&path) {
             callback(path)?;
         }
@@ -204,32 +203,34 @@ fn worker_thread(params: Arc<Parameters>, stats_tx: mpsc::Sender<Statistics>, rx
     loop {
         let src = match rx.recv() {
             Some(task) => task,
-            None => break, //no more tasks
+            None => break, // No more tasks
         };
 
-        //in a nested function so we can handle errors centrally
+        // In a nested function so we can handle errors centrally
         fn compress_single(src: &ThreadParam, params: &Parameters, mut local_stats: &mut Statistics) -> Result<()> {
             let dst_path = format!("{}.{}",
                                    src.to_str().ok_or(ErrorKind::InvalidCharactersInPath)?,
                                    params.extension);
             let dst = Path::new(&dst_path);
 
-            //again, in a scope for error handling
+            // Again, in a scope for error handling
             |local_stats: &mut Statistics| -> Result<()> {
                     let src_metadata = std::fs::metadata(src)?;
 
-                    //don't compress files that are already compressed that haven't changed
+                    // Don't compress files that are already compressed that haven't changed
                     if let Ok(dst_metadata) = std::fs::metadata(dst) {
-                        //the destination already exists
+                        // The destination already exists
                         let src_seconds = src_metadata.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs();
                         let dst_seconds = dst_metadata.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs();
                         match src_seconds == dst_seconds {
                             true => {
                                 local_stats.update(src_metadata.len(), dst_metadata.len(), false);
-                                return Ok(());//no need to recompress
+                                // No need to recompress
+                                return Ok(());
                             },
                             false => {
-                                std::fs::remove_file(dst)?; //throw if we can't
+                                // Return an error if we can't remove the file
+                                std::fs::remove_file(dst)?;
                             }
                         };
                     }
@@ -244,9 +245,9 @@ fn worker_thread(params: Arc<Parameters>, stats_tx: mpsc::Sender<Statistics>, rx
                     Ok(())
                 }(&mut local_stats)
                 .map_err(|e| {
-                    //try deleting the invalid destination file, but don't care if we can't
+                    // Try deleting the invalid destination file, but don't care if we can't
                     std::fs::remove_file(dst).unwrap_or_default();
-                    e //return the same error
+                    e // Bubble up the same error
                 })
         }
 
@@ -290,7 +291,7 @@ fn is_blacklisted(path: &Path) -> Result<bool> {
     return Ok(r);
 }
 
-//pre-pends ./ to relative paths
+// Prepends ./ to relative paths
 fn fix_filters(filters: &mut Vec<String>) {
     for i in 0..filters.len() {
         let new_path;
@@ -298,15 +299,15 @@ fn fix_filters(filters: &mut Vec<String>) {
             let ref path = filters[i];
             match path.chars().next().expect("Received blank filter!") {
                 '.' | '/' => continue,
-                _ => new_path = format!("./{}", path) //un-prefixed path
+                _ => new_path = format!("./{}", path) // Use un-prefixed path
             }
         }
         filters[i] = new_path;
     }
 }
 
-//Given a list of filters, extracts the directories that should be searched
-//To-Do: Also provide info about to what depth they should be recursed
+// Given a list of filters, extracts the directories that should be searched.
+// TODO: Also provide info about to what depth they should be recursed.
 use std::collections::HashSet;
 fn extract_paths(filters: &Vec<String>) -> Result<HashSet<PathBuf>> {
     use std::iter::FromIterator;
@@ -320,7 +321,7 @@ fn extract_paths(filters: &Vec<String>) -> Result<HashSet<PathBuf>> {
         };
 
         for filter in filters {
-            //take everything until the first expression
+            // Take everything until the first expression
             let mut last_char = None::<char>;
             let dir;
             {
@@ -347,19 +348,18 @@ fn extract_paths(filters: &Vec<String>) -> Result<HashSet<PathBuf>> {
             };
 
             if dir.to_str().ok_or(ErrorKind::InvalidCharactersInPath)?.ends_with(filter) {
-                //the "dir" is actually a full path to a single file
-                //return it as-is
+                // The "dir" is actually a full path to a single file, return it as-is.
                 insert_path(filter, dir);
                 continue;
             }
 
             if last_char == Some('/') {
-                //dir is a already a directory, return it as-is
+                // Dir is a already a directory, return it as-is.
                 insert_path(filter, dir);
                 continue;
             }
 
-            //we need to extract the directory from the path we have
+            // We need to extract the directory from the path we have
             let dir = match PathBuf::from(dir).parent() {
                 Some(parent) => parent.to_path_buf(),
                 None => PathBuf::from("./"),

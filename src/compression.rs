@@ -50,7 +50,7 @@ fn gzip_compress(src_path: &Path, dst_path: &Path, quality: Option<u8>) -> Resul
     loop {
         let bytes_read = src.read(&mut buf).chain_err(|| "Error reading from source file!")?;
         match bytes_read {
-            0 => break, //end of file
+            0 => break, // End-of-file
             l => encoder.write_all(&buf[0..l]).chain_err(|| "Fatal gzip encoder error!")?,
         };
     }
@@ -73,7 +73,7 @@ fn brotli_compress(src_path: &Path, dst_path: &Path, quality: Option<u8>) -> Res
     loop {
         let bytes_read = src.read(&mut buf).chain_err(|| "Error reading from source file!")?;
         match bytes_read {
-            0 => break, //end of file
+            0 => break, // End-of-file
             l => encoder.write_all(&buf[0..l]).chain_err(|| "Fatal gzip encoder error!")?,
         };
     }
