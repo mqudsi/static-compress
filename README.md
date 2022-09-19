@@ -12,7 +12,7 @@
 cargo install static-compress
 ```
 
-Pre-built, signed binaries for select platforms can also be found at the static-compress homepage at 
+Pre-built, signed binaries for select platforms can also be found at the static-compress homepage at
 https://neosmart.net/static-compress/
 
 ### Usage
@@ -20,7 +20,7 @@ https://neosmart.net/static-compress/
 USAGE:
 
     static-compress [OPTIONS] <FILTER>...
-Usage of `static-compress` is straightforward. It is invoked with either a list of files to pre-compress or an expression such as `*.rs` (to match all files in the current directory with a `.rs` extension) or `**/*.png` (to match `.png` files in all subdirectories). 
+Usage of `static-compress` is straightforward. It is invoked with either a list of files to pre-compress or an expression such as `"*.rs"` (to match all files in the current directory with a `.rs` extension) or `"**/*.png"` (to match `.png` files in all subdirectories).
 
 No options are required, but optional command line switches are available to influence the behavior of `static-compress`:
 
@@ -28,11 +28,15 @@ No options are required, but optional command line switches are available to inf
                        webp|zopfli]>
     -e, --extension <.EXT>                     The extension to use for compressed files. Supplied
                                                automatically if not provided.
-    -j, --threads <COUNT>                      The number of simultaneous conversions
+    -j, --threads <COUNT>                      The number of simultaneous compressions.
+    -i, case-insensitive                       Use case-insensitive matching against patterns.
     -q, --quality <QUALITY>                    The algorithm-specific quality parameter to be used.
                                                Automatically set if not provided.
+    --quiet                                    Suppresses all non-error output.
+    --no-progress                              Silences file progress information.
+    --no-summary                               Suppress the end-of-run summary.
 
-Multithreading may be achieved by means of the `-j` switch (akin to `make`), and can be used to specify the number of files to be compressed simultaneously across multiple threads. By default, `static-compress` uses only one thread.
+Multithreading may be achieved by means of the `-j` switch (akin to `make`), and can be used to specify the number of files to be compressed simultaneously across multiple threads. By default, `static-compress` uses all available threads.
 
 The algorithm-specific `--quality` switch can be used to set the quality parameter for the chosen compressor (if supported):
 
@@ -74,6 +78,7 @@ As of version 0.3, `static-compress` also features webp support for image compre
 * Does not compress already compressed files (i.e. won't recompress your pre-compressed `.gz` files as `.gz.br`),
 * Can be configured to use as many or as few threads as you like for simultaneous compression,
 * Can be used to compress an entire directory tree (`static-compress "**"`) or just files matching a certain extension (`static-compress "**/*.html"`) or only matching a certain prefix or subpath (`static-compress "**/tocompress/*"`)
+* Sets the modification date of the compressed file equal to the modification date of the original file, so that when the original file is modified the webserver can know not to serve the old/stale compressed file (and so a subsequent `static-compress` run can know to re-compress the file and replace the stale copy).
 
 ### Web Server Configuration
 
@@ -112,4 +117,4 @@ Note that the file type options for both modules (``brotli_types`` and `gzip_typ
 
 `static-compress` is made freely available to the public under the terms of the MIT license. `static-compress` is open source and would not have been possible without the `flate2` and `zopfli` crate authors, as well as the original creators of the `brotli`, `gzip`, and `zopfli` algorithms.
 
-`static-compress` is written by Mahmoud Al-Qudsi <[mqudsi@neosmart.net](mailto:mqudsi@neosmart.net)> under the stewardship of NeoSmart Technologies. The name `static-compress` and all other rights not conferred by the MIT license are reserved and copyright of NeoSmart Technologies, 2017.
+`static-compress` is written by Mahmoud Al-Qudsi <[mqudsi@neosmart.net](mailto:mqudsi@neosmart.net)> under the stewardship of NeoSmart Technologies. The name `static-compress` and all other rights not conferred by the MIT license are reserved and copyright of NeoSmart Technologies, 2017-2022.
