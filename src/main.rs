@@ -46,7 +46,7 @@ fn run() -> Result<()> {
             .short('j')
             .long("threads")
             .value_name("COUNT")
-            .help("The number of simultaneous compressions (default: 1)")
+            .help("The number of simultaneous compressions (default: number of cores)")
             .takes_value(true))
         .arg(Arg::new("filters")
             .value_name("FILTER")
@@ -115,7 +115,7 @@ fn run() -> Result<()> {
         },
         show_summary,
         show_progress,
-        threads: get_parameter(&matches, "threads", 1)?,
+        threads: get_parameter(&matches, "threads", std::thread::available_parallelism()?.into())?,
     });
 
     let (send_queue, stats_rx, wait_group) = start_workers(&parameters);
