@@ -23,6 +23,7 @@ use std::sync::mpsc;
 use structs::*;
 
 const DEBUG_FILTERS: bool = cfg!(debug_assertions);
+#[inline(always)]
 fn debug(message: &str) {
     if DEBUG_FILTERS {
         errstln!("{}", message);
